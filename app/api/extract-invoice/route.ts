@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         "X-Title": "Stationary Shop POS"
       },
       body: JSON.stringify({
-        model: "openrouter/free", // The correct, valid model name!
+        model: "openrouter/free",
         messages: [
           {
             role: "user",
@@ -48,21 +48,27 @@ export async function POST(req: NextRequest) {
     if (!response.ok) {
         const errorText = await response.text();
         console.error("OpenRouter API Error:", errorText);
-        // This will now send the EXACT error back to your frontend
         return NextResponse.json({ error: `OpenRouter Error: ${response.statusText}` }, { status: response.status });
     }
 
     const result = await response.json();
     
-    // Check if OpenRouter returned a valid message
     if (!result.choices || !result.choices[0] || !result.choices[0].message) {
       console.error("Unexpected API Response:", result);
       return NextResponse.json({ error: 'Invalid response from AI provider' }, { status: 500 });
     }
 
     const textResponse = result.choices[0].message.content;
-    const cleanedText = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-    const extractedData = JSON.parse(cleanedText);
+
+    // 🔥 Extract ONLY the JSON array [...], stripping preambles like "User Safety: safe"
+    const jsonMatch = textResponse.match(/\[[\s\S]*\]/) || textResponse.match(/\{[\s\S]*\}/);
+    
+    if (!jsonMatch) {
+      console.error("Could not find JSON array in response:", textResponse);
+      return NextResponse.json({ error: 'AI response did not contain a valid JSON list' }, { status: 500 });
+    }
+
+    const extractedData = JSON.parse(jsonMatch[0]);
 
     return NextResponse.json({ items: extractedData });
 
@@ -70,5 +76,5 @@ export async function POST(req: NextRequest) {
     console.error('AI Extraction Failed:', error);
     return NextResponse.json({ error: error.message || 'Failed to process invoice' }, { status: 500 });
   }
-}
-  
+                             }
+    
