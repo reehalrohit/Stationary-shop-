@@ -2,38 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-
 @media print {
   @page {
     size: A4;
     margin: 15mm;
   }
+  
   body {
     background: white !important;
     color: black !important;
   }
+  
   nav, footer, .print\:hidden {
-    display: none !important;
-  }
-}
-
-  
-  /* Only show the invoice template */
-  #print-section, #print-section * {
-    visibility: visible;
-  }
-  
-  /* Align the thermal receipt to the top left of the hardware printer */
-  #print-section {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 80mm; 
-    margin: 0;
-    padding: 0;
-  }
-
-  .print\:hidden {
     display: none !important;
   }
 }
