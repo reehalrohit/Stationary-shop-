@@ -63,12 +63,13 @@ export default function AddStockAutomated() {
       const cleanedData = mergeDuplicates(data.items);
       setExtractedItems(cleanedData);
       
-    } catch (error) {
-      alert("Error reading invoice. Please make sure the image is clear.");
+        } catch (error: any) {
+      alert(error.message || "Error reading invoice. Please make sure the image is clear.");
       console.error(error);
     } finally {
       setIsProcessing(false);
     }
+    
   };
 
   const confirmAndAddToInventory = () => {
