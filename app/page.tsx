@@ -10,7 +10,6 @@ export default function BillingPOS() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch the live stock we just saw in your screenshot!
   useEffect(() => {
     const fetchInventory = async () => {
       try {
@@ -35,7 +34,9 @@ export default function BillingPOS() {
         cartItem.name === item.name ? { ...cartItem, qty: cartItem.qty + 1 } : cartItem
       ));
     } else {
-      setCart([...cart, { ...item, qty: 1 }]);
+      // 🔥 THE FIX: We force the database text (item.price) to become a Number here 
+      // so your hidden A4Invoice component doesn't crash!
+      setCart([...cart, { ...item, qty: 1, price: Number(item.price) }]);
     }
   };
 
@@ -43,7 +44,8 @@ export default function BillingPOS() {
     setCart(cart.filter(item => item.name !== itemName));
   };
 
-  const total = cart.reduce((sum, item) => sum + (item.qty * item.price), 0);
+  // We also make sure the total handles everything safely as Numbers
+  const total = cart.reduce((sum, item) => sum + (Number(item.qty) * Number(item.price)), 0);
 
   const filteredInventory = inventory.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -120,7 +122,7 @@ export default function BillingPOS() {
                       </p>
                     </div>
                     <div className="flex items-center gap-4">
-                      <p className="font-bold text-gray-800">₹{(item.qty * item.price).toFixed(2)}</p>
+                      <p className="font-bold text-gray-800">₹{(Number(item.qty) * Number(item.price)).toFixed(2)}</p>
                       <button 
                         onClick={() => removeFromCart(item.name)}
                         className="text-red-500 font-bold hover:text-red-700 px-2"
@@ -158,5 +160,5 @@ export default function BillingPOS() {
       
     </div>
   );
-                        }
-                
+                }
+                        
