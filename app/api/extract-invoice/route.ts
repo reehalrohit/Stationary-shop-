@@ -3,18 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
+    const body = await req.json();
+    const base64Image = body.image;
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    if (!base64Image) {
+      return NextResponse.json({ error: 'No image data provided' }, { status: 400 });
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64Image = buffer.toString('base64');
-
-    // Highly compact prompt to maximize processing speed on free servers
     const prompt = `Extract all items from this invoice into a strict JSON array of objects. Each object must have keys: "name" (string), "qty" (number), "price" (number). Output ONLY raw JSON.`;
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -32,7 +27,7 @@ export async function POST(req: NextRequest) {
             role: "user",
             content: [
               { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: `data:${file.type};base64,${base64Image}` } }
+              { type: "image_url", image_url: { url: base64Image } }
             ]
           }
         ]
@@ -63,6 +58,6 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('AI Extraction Failed:', error);
-    return NextResponse.json({ error: 'The request timed out because the free server queue is busy. Please try uploading the invoice again.' }, { status: 504 });
+    return NextResponse.json({ error: error.message || 'Failed to process invoice' }, { status: 500 });
   }
 }
