@@ -1,68 +1,211 @@
-export const maxDuration = 60;
-import { NextRequest, NextResponse } from 'next/server';
+'use client';
 
-export async function POST(req: NextRequest) {
-  try {
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
+import { useState } from 'react';
+import Navbar from '../../components/Navbar';
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
-    }
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64Image = buffer.toString('base64');
-
-    // Highly compact prompt to maximize processing speed on free servers
-    const prompt = `Extract all items from this invoice into a strict JSON array of objects. Each object must have keys: "name" (string), "qty" (number), "price" (number). Output ONLY raw JSON.`;
-
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://stationary-shop-taupe.vercel.app", 
-        "X-Title": "Ajay Stationary Hub POS"
-      },
-      body: JSON.stringify({
-        model: "google/gemma-4-26b-a4b-it:free",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: `data:${file.type};base64,${base64Image}` } }
-            ]
-          }
-        ]
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("OpenRouter API Error:", errorText);
-      return NextResponse.json({ error: `AI provider busy (Status ${response.status}). Please try again.` }, { status: response.status });
-    }
-
-    const result = await response.json();
+const mergeDuplicates = (items: any[]) => {
+  const merged: Record<string, any> = {};
+  
+  items.forEach((item) => {
+    const cleanName = item.name.trim().toLowerCase();
     
-    if (!result.choices || !result.choices[0] || !result.choices[0].message) {
-      return NextResponse.json({ error: 'Invalid response from AI provider' }, { status: 500 });
+    if (merged[cleanName]) {
+      merged[cleanName].qty += Number(item.qty);
+      merged[cleanName].price = Math.max(merged[cleanName].price, Number(item.price));
+    } else {
+      merged[cleanName] = { 
+        name: item.name.trim(), 
+        qty: Number(item.qty), 
+        price: Number(item.price) 
+      };
     }
+  });
+  
+  return Object.values(merged);
+};
 
-    const textResponse = result.choices[0].message.content;
-    const jsonMatch = textResponse.match(/\[[\s\S]*\]/) || textResponse.match(/\{[\s\S]*\}/);
-    
-    if (!jsonMatch) {
-      return NextResponse.json({ error: 'AI response did not contain a valid JSON list' }, { status: 500 });
+// Helper to compress image before upload to prevent 504 timeouts
+const compressImage = (file: File): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1000;
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8)); // Compressed base64
+      };
+    };
+  });
+};
+
+export default function AddStockAutomated() {
+  const [file, setFile] = useState<File | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [extractedItems, setExtractedItems] = useState<any[]>([]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
     }
+  };
 
-    const extractedData = JSON.parse(jsonMatch[0]);
-    return NextResponse.json({ items: extractedData });
+  const processInvoice = async () => {
+    if (!file) return;
+    setIsProcessing(true);
 
-  } catch (error: any) {
-    console.error('AI Extraction Failed:', error);
-    return NextResponse.json({ error: 'The request timed out because the free server queue is busy. Please try uploading the invoice again.' }, { status: 504 });
-  }
-                              }
+    try {
+      // Compress image to small payload to avoid 504 Gateway Timeouts
+      const compressedBase64 = await compressImage(file);
+
+      const response = await fetch('/api/extract-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: compressedBase64 }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to read invoice';
+        try {
+          const errData = await response.json();
+          errorMessage = errData.error || `HTTP Error ${response.status}`;
+        } catch (e) {
+          errorMessage = `Server crashed with status: ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      const cleanedData = mergeDuplicates(data.items);
+      setExtractedItems(cleanedData);
+      
+    } catch (error: any) {
+      alert(`SYSTEM ERROR:\n${error.message}`);
+      console.error(error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleItemChange = (index: number, field: string, value: any) => {
+    const updated = [...extractedItems];
+    updated[index][field] = field === 'name' ? value : Number(value);
+    setExtractedItems(updated);
+  };
+
+  const confirmAndAddToInventory = async () => {
+    try {
+      const response = await fetch('/api/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: extractedItems }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to save to database');
+
+      alert(`Successfully saved ${extractedItems.length} items to live inventory database!`);
+      setExtractedItems([]);
+      setFile(null);
+    } catch (error: any) {
+      alert(`Error saving stock: ${error.message}`);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <Navbar />
+      
+      <main className="flex-grow p-4 md:p-8 max-w-4xl mx-auto w-full">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800">Auto-Process Supplier Invoice</h2>
+
+        {/* Upload Zone */}
+        <div className="bg-white p-6 rounded-lg shadow-md border-t-4 border-blue-600 mb-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Upload Invoice (Image or PDF)</label>
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            <input 
+              type="file" 
+              accept="image/*,application/pdf"
+              onChange={handleFileUpload}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+            <button 
+              onClick={processInvoice}
+              disabled={!file || isProcessing}
+              className="bg-blue-600 text-white w-full md:w-auto px-6 py-2 rounded font-bold hover:bg-blue-700 disabled:bg-gray-400 whitespace-nowrap"
+            >
+              {isProcessing ? 'Reading Invoice...' : 'Extract Items'}
+            </button>
+          </div>
+        </div>
+
+        {/* Verification Table */}
+        {extractedItems.length > 0 && (
+          <div className="bg-white p-6 rounded-lg shadow-md animate-fade-in">
+            <h3 className="text-lg font-bold mb-4 text-green-700 flex items-center gap-2">
+              <span>✓</span> Extraction Complete (Duplicates Merged)
+            </h3>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse mb-6 min-w-[500px]">
+                <thead>
+                  <tr className="bg-gray-100 border-b border-gray-300">
+                    <th className="p-2 font-semibold">Detected Item Name</th>
+                    <th className="p-2 font-semibold text-center">Total Qty</th>
+                    <th className="p-2 font-semibold text-right">Unit Price (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {extractedItems.map((item, index) => (
+                    <tr key={index} className="border-b border-gray-200">
+                      <td className="p-2">
+                        <input 
+                          type="text" 
+                          value={item.name} 
+                          onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                          className="w-full border-none outline-none focus:ring-1 focus:ring-blue-400 bg-transparent" 
+                        />
+                      </td>
+                      <td className="p-2 text-center">
+                        <input 
+                          type="number" 
+                          value={item.qty} 
+                          onChange={(e) => handleItemChange(index, 'qty', e.target.value)}
+                          className="w-16 text-center border-none outline-none focus:ring-1 focus:ring-blue-400 bg-transparent" 
+                        />
+                      </td>
+                      <td className="p-2 text-right">
+                        <input 
+                          type="number" 
+                          value={item.price} 
+                          onChange={(e) => handleItemChange(index, 'price', e.target.value)}
+                          className="w-20 text-right border-none outline-none focus:ring-1 focus:ring-blue-400 bg-transparent" 
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <button 
+              onClick={confirmAndAddToInventory}
+              className="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 transition shadow-sm"
+            >
+              Confirm & Add to Live Inventory
+            </button>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+            }
+      
