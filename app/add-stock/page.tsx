@@ -220,7 +220,7 @@ export default function AddStockAutomated() {
               </table>
             </div>
 
-            <button 
+                <button 
               onClick={confirmAndAddToInventory}
               className="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 transition shadow-sm"
             >
@@ -228,9 +228,15 @@ export default function AddStockAutomated() {
             </button>
           </div>
         )}
-                          
       </main>
+
+      {/* 🚀 NEW FOOTER */}
+      <footer className="w-full text-center py-6 mt-auto print:hidden">
+        <p className="text-gray-500 font-medium text-sm tracking-wide">
+          Made by <span className="font-bold text-gray-700">Rohit</span>
+        </p>
+      </footer>
+
     </div>
   );
-                }
-        
+}
