@@ -272,12 +272,18 @@ export default function BillingPOS() {
         </div>
       )}
 
-      {/* Hidden A4 Print Component */}
+            {/* Hidden A4 Print Component */}
       <div className="hidden print:block">
         <A4Invoice cart={cart} total={total} />
       </div>
       
+      {/* 🚀 NEW FOOTER */}
+      <footer className="w-full text-center py-6 mt-auto print:hidden">
+        <p className="text-gray-500 font-medium text-sm tracking-wide">
+          Made by <span className="font-bold text-gray-700">Rohit</span>
+        </p>
+      </footer>
+      
     </div>
   );
-  }
-    
+}
