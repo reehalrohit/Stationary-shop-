@@ -74,3 +74,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Server Error: ${error.message}` }, { status: 500 });
   }
 }
+
+// PUT: Permanently update a single item's details (Name, Stock, Wholesale, MRP)
+export async function PUT(req: NextRequest) {
+  try {
+    const { id, name, qty, price, mrp } = await req.json();
+    
+    if (!id) {
+      return NextResponse.json({ error: 'Missing item ID' }, { status: 400 });
+    }
+
+    const client = await pool.connect();
+    
+    await client.query(`
+      UPDATE inventory 
+      SET name = $1, qty = $2, price = $3, mrp = $4
+      WHERE id = $5
+    `, [name, Number(qty), Number(price), Number(mrp), id]);
+    
+    client.release();
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Database PUT error:', error);
+    return NextResponse.json({ error: `Update Error: ${error.message}` }, { status: 500 });
+  }
+  }
+        
