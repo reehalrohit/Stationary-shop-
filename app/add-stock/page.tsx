@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Navbar from '../../components/Navbar';
 
-// Helper Function: Merges duplicates and adds their quantities
 const mergeDuplicates = (items: any[]) => {
   const merged: Record<string, any> = {};
   
@@ -25,6 +24,29 @@ const mergeDuplicates = (items: any[]) => {
   return Object.values(merged);
 };
 
+// Helper to compress image before upload to prevent 504 timeouts
+const compressImage = (file: File): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1000;
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8)); // Compressed base64
+      };
+    };
+  });
+};
+
 export default function AddStockAutomated() {
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -41,12 +63,13 @@ export default function AddStockAutomated() {
     setIsProcessing(true);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
+      // Compress image to small payload to avoid 504 Gateway Timeouts
+      const compressedBase64 = await compressImage(file);
 
       const response = await fetch('/api/extract-invoice', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: compressedBase64 }),
       });
 
       if (!response.ok) {
@@ -184,4 +207,5 @@ export default function AddStockAutomated() {
       </main>
     </div>
   );
-}
+    }
+    
