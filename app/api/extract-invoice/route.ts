@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         "X-Title": "Stationary Shop POS"
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-001", // The correct, valid model name!
+        model: "openrouter/free", // The correct, valid model name!
         messages: [
           {
             role: "user",
