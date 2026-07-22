@@ -162,7 +162,7 @@ export default function AddStockAutomated() {
           </div>
         </div>
 
-        {/* Verification Table */}
+                {/* Verification Table */}
         {extractedItems.length > 0 && (
           <div className="bg-white p-6 rounded-lg shadow-md animate-fade-in">
             <h3 className="text-lg font-bold mb-4 text-green-700 flex items-center gap-2">
@@ -170,12 +170,13 @@ export default function AddStockAutomated() {
             </h3>
             
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse mb-6 min-w-[500px]">
+              <table className="w-full text-left border-collapse mb-6 min-w-[600px]">
                 <thead>
                   <tr className="bg-gray-100 border-b border-gray-300">
                     <th className="p-2 font-semibold">Detected Item Name</th>
-                    <th className="p-2 font-semibold text-center">Total Qty</th>
-                    <th className="p-2 font-semibold text-right">Unit Price (₹)</th>
+                    <th className="p-2 font-semibold text-center">Qty</th>
+                    <th className="p-2 font-semibold text-right text-gray-500">Wholesale (₹)</th>
+                    <th className="p-2 font-semibold text-right text-green-700">Set MRP (₹)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -197,12 +198,20 @@ export default function AddStockAutomated() {
                           className="w-16 text-center border-none outline-none focus:ring-1 focus:ring-blue-400 bg-transparent" 
                         />
                       </td>
-                      <td className="p-2 text-right">
+                      <td className="p-2 text-right text-gray-500">
                         <input 
                           type="number" 
                           value={item.price} 
                           onChange={(e) => handleItemChange(index, 'price', e.target.value)}
                           className="w-20 text-right border-none outline-none focus:ring-1 focus:ring-blue-400 bg-transparent" 
+                        />
+                      </td>
+                      <td className="p-2 text-right">
+                        <input 
+                          type="number" 
+                          value={item.mrp || item.price} 
+                          onChange={(e) => handleItemChange(index, 'mrp', e.target.value)}
+                          className="w-24 text-right border rounded border-green-300 outline-none focus:ring-2 focus:ring-green-500 bg-green-50 font-bold text-green-700 p-1" 
                         />
                       </td>
                     </tr>
@@ -219,6 +228,7 @@ export default function AddStockAutomated() {
             </button>
           </div>
         )}
+                          
       </main>
     </div>
   );
