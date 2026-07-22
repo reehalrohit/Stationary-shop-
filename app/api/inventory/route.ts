@@ -2,13 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
 const pool = new Pool({
-  connectionString: process.env.POSTGRES_URL,
+  connectionString: process.env.POSTGRES_URL || "",
   ssl: { rejectUnauthorized: false }
 });
 
 // GET: Fetch all saved inventory items for the POS
 export async function GET() {
   try {
+    if (!process.env.POSTGRES_URL) {
+      return NextResponse.json({ items: [], error: 'No database connected' });
+    }
     const client = await pool.connect();
     const result = await client.query('SELECT * FROM inventory ORDER BY id DESC;');
     client.release();
@@ -22,16 +25,27 @@ export async function GET() {
 // POST: Save or update scanned invoice items into the database
 export async function POST(req: NextRequest) {
   try {
+    // 1. Check if Vercel Postgres is actually linked
+    if (!process.env.POSTGRES_URL) {
+      return NextResponse.json({ error: 'Database not linked. Please create a Postgres database in the Vercel Storage tab.' }, { status: 500 });
+    }
+
     const { items } = await req.json();
 
     if (!items || !Array.isArray(items)) {
       return NextResponse.json({ error: 'Invalid items list' }, { status: 400 });
     }
 
-    const client = await pool.connect();
+    let client;
+    try {
+      // 2. Attempt to connect to the database
+      client = await pool.connect();
+    } catch (connError: any) {
+      return NextResponse.json({ error: `Connection failed: ${connError.message}` }, { status: 500 });
+    }
 
     try {
-      // Automatically create the table if it doesn't exist
+      // 3. Create table and insert items
       await client.query(`
         CREATE TABLE IF NOT EXISTS inventory (
           id SERIAL PRIMARY KEY,
@@ -41,7 +55,6 @@ export async function POST(req: NextRequest) {
         );
       `);
 
-      // Insert new items or update quantities/prices if the item already exists
       for (const item of items) {
         await client.query(`
           INSERT INTO inventory (name, qty, price)
@@ -50,7 +63,7 @@ export async function POST(req: NextRequest) {
           DO UPDATE SET 
             qty = inventory.qty + EXCLUDED.qty,
             price = EXCLUDED.price;
-        `, [item.name, item.qty, item.price]);
+        `, [item.name, Number(item.qty), Number(item.price)]);
       }
 
       client.release();
@@ -58,10 +71,11 @@ export async function POST(req: NextRequest) {
     } catch (dbError: any) {
       client.release();
       console.error('Database write error:', dbError);
-      return NextResponse.json({ error: dbError.message }, { status: 500 });
+      return NextResponse.json({ error: `Write Error: ${dbError.message}` }, { status: 500 });
     }
   } catch (error: any) {
     console.error('API error:', error);
-    return NextResponse.json({ error: 'Server error processing stock' }, { status: 500 });
+    return NextResponse.json({ error: `Server Error: ${error.message}` }, { status: 500 });
   }
 }
+  
