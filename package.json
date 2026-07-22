@@ -11,16 +11,16 @@
   "dependencies": {
     "next": "latest",
     "react": "latest",
+    "react-dom": "latest",
     "pg": "latest"
-    "react-dom": "latest"
   },
   "devDependencies": {
     "@types/node": "latest",
+    "@types/pg": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "autoprefixer": "latest",
     "eslint": "latest",
-    "@types/pg": "latest",
     "eslint-config-next": "latest",
     "postcss": "latest",
     "tailwindcss": "3.4.1",
