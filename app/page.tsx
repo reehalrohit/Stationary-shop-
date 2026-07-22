@@ -27,19 +27,23 @@ export default function BillingPOS() {
     fetchInventory();
   }, []);
 
-  const addToCart = (item: any) => {
+    const addToCart = (item: any) => {
     const existingItem = cart.find(cartItem => cartItem.name === item.name);
     if (existingItem) {
-      // If it's already in the cart, just add 1 to the quantity
       setCart(cart.map(cartItem => 
         cartItem.name === item.name ? { ...cartItem, qty: cartItem.qty + 1 } : cartItem
       ));
     } else {
-      // New item in cart: Default Qty to 1, and temporarily set MRP to wholesale price so you can edit it
-      setCart([...cart, { ...item, qty: 1, price: Number(item.price), mrp: Number(item.price) }]);
+      // Pulls the permanent MRP from the database automatically!
+      setCart([...cart, { 
+        ...item, 
+        qty: 1, 
+        price: Number(item.price), 
+        mrp: Number(item.mrp || item.price) 
+      }]);
     }
   };
-
+  
   // Function to let you edit Qty and MRP directly in the cart
   const updateCartItem = (itemName: string, field: string, value: string) => {
     const numValue = value === '' ? 0 : Number(value);
