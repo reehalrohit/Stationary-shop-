@@ -4,7 +4,7 @@ export default function Navbar() {
   return (
     <nav className="bg-blue-800 text-white p-4 shadow-md print:hidden">
       <div className="container mx-auto flex justify-between items-center">
-        <h1 className="text-xl font-bold tracking-wide">Stationary Hub</h1>
+        <h1 className="text-xl font-bold tracking-wide">Ajay Stationary Hub</h1>
         
         {/* Navigation Links */}
         <div className="flex gap-4 font-semibold text-sm">
