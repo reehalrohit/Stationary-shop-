@@ -41,7 +41,7 @@ export default function AddStockAutomated() {
     }
   };
 
-  const processInvoice = async () => {
+    const processInvoice = async () => {
     if (!file) return;
     setIsProcessing(true);
 
@@ -49,28 +49,36 @@ export default function AddStockAutomated() {
       const formData = new FormData();
       formData.append('file', file);
 
-      // Send the image to your AI backend route
       const response = await fetch('/api/extract-invoice', {
         method: 'POST',
         body: formData,
       });
 
-      if (!response.ok) throw new Error('Failed to read invoice');
+      // 🔥 THIS IS THE FIX: Actually read the error from the server!
+      if (!response.ok) {
+        let errorMessage = 'Failed to read invoice';
+        try {
+          const errData = await response.json();
+          errorMessage = errData.error || `HTTP Error ${response.status}`;
+        } catch (e) {
+          errorMessage = `Server crashed with status: ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
 
       const data = await response.json();
       
-      // 2. Apply the Duplicate Removal filter before setting the state!
       const cleanedData = mergeDuplicates(data.items);
       setExtractedItems(cleanedData);
       
-        } catch (error: any) {
-      alert(error.message || "Error reading invoice. Please make sure the image is clear.");
+    } catch (error: any) {
+      alert(`SYSTEM ERROR:\n${error.message}`);
       console.error(error);
     } finally {
       setIsProcessing(false);
     }
-    
   };
+  
 
   const confirmAndAddToInventory = () => {
     // Later, this will send the clean array to your real database
