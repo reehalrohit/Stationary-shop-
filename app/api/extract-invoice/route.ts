@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         "X-Title": "Stationary Shop POS"
       },
       body: JSON.stringify({
-        model: "openrouter/free",
+        model: "google/gemma-4-26b-a4b-it:free",
         messages: [
           {
             role: "user",
