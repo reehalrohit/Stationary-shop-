@@ -65,7 +65,7 @@ export default function A4Invoice({ cart, total }: { cart: any[], total: number 
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Shop Policy Footer */}
       <div className="mt-20 border-t border-gray-300 pt-6 text-center text-sm text-gray-500">
         <p>Thank you for shopping with Ajay Stationary Hub!</p>
         <p>Goods once sold cannot be returned or exchanged without a valid receipt.</p>
@@ -77,6 +77,12 @@ export default function A4Invoice({ cart, total }: { cart: any[], total: number 
         </div>
       </div>
 
+      {/* 🚀 Developer Credit (Prints at the very bottom) */}
+      <div className="mt-16 text-center text-xs text-gray-500 font-medium tracking-wide">
+        <p>Website development by Rohit</p>
+        <p>CONTACT ON r10892040@gmail.com OR 9478509980</p>
+      </div>
+
     </div>
   );
-      }
+}
