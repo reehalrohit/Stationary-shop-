@@ -2,7 +2,7 @@ import './globals.css';
 import Script from 'next/script';
 
 export const metadata = {
-  title: 'Stationary Hub POS',
+  title: 'Ajay Stationary Hub POS',
   description: 'Point of Sale and Billing System',
 };
 
