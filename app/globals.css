@@ -4,10 +4,19 @@
 
 
 @media print {
-  /* Hide everything by default when printing */
-  body * {
-    visibility: hidden;
+  @page {
+    size: A4;
+    margin: 15mm;
   }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  nav, footer, .print\:hidden {
+    display: none !important;
+  }
+}
+
   
   /* Only show the invoice template */
   #print-section, #print-section * {
