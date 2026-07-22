@@ -17,8 +17,8 @@ export default function InvoiceTemplate({ cart, total, invoiceNo, date }: Invoic
   return (
     <div id="print-section" className="w-[80mm] bg-white text-black text-sm font-mono mx-auto pb-8">
       <div className="text-center mb-4">
-        <h2 className="font-bold text-lg">STATIONARY HUB</h2>
-        <p className="text-xs">Main Market Road</p>
+        <h2 className="font-bold text-lg">Ajay STATIONARY HUB</h2>
+        <p className="text-xs">Binewal Road adda Jhungian</p>
         <p className="text-xs">GSTIN: 03XXXXX0000X1Z5</p>
       </div>
       
