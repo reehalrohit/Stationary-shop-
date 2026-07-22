@@ -30,22 +30,30 @@ export default function BillingPOS() {
   const addToCart = (item: any) => {
     const existingItem = cart.find(cartItem => cartItem.name === item.name);
     if (existingItem) {
+      // If it's already in the cart, just add 1 to the quantity
       setCart(cart.map(cartItem => 
         cartItem.name === item.name ? { ...cartItem, qty: cartItem.qty + 1 } : cartItem
       ));
     } else {
-      // 🔥 THE FIX: We force the database text (item.price) to become a Number here 
-      // so your hidden A4Invoice component doesn't crash!
-      setCart([...cart, { ...item, qty: 1, price: Number(item.price) }]);
+      // New item in cart: Default Qty to 1, and temporarily set MRP to wholesale price so you can edit it
+      setCart([...cart, { ...item, qty: 1, price: Number(item.price), mrp: Number(item.price) }]);
     }
+  };
+
+  // Function to let you edit Qty and MRP directly in the cart
+  const updateCartItem = (itemName: string, field: string, value: string) => {
+    const numValue = value === '' ? 0 : Number(value);
+    setCart(cart.map(item => 
+      item.name === itemName ? { ...item, [field]: numValue } : item
+    ));
   };
 
   const removeFromCart = (itemName: string) => {
     setCart(cart.filter(item => item.name !== itemName));
   };
 
-  // We also make sure the total handles everything safely as Numbers
-  const total = cart.reduce((sum, item) => sum + (Number(item.qty) * Number(item.price)), 0);
+  // The final total is now calculated strictly using the MRP, NOT the wholesale price!
+  const total = cart.reduce((sum, item) => sum + (Number(item.qty) * Number(item.mrp)), 0);
 
   const filteredInventory = inventory.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -62,7 +70,7 @@ export default function BillingPOS() {
         
         {/* LEFT SIDE: Live Inventory Catalog */}
         <div className="bg-white p-6 rounded-lg shadow-md h-[80vh] flex flex-col border-t-4 border-blue-900">
-          <h2 className="text-2xl font-bold mb-4 text-gray-800">Ajay Stationary Hub - Stock</h2>
+          <h2 className="text-2xl font-bold mb-4 text-gray-800">Stock Catalog</h2>
           
           <input 
             type="text" 
@@ -84,7 +92,10 @@ export default function BillingPOS() {
                       <p className="text-sm text-gray-500">In Stock: {item.qty}</p>
                     </div>
                     <div className="flex items-center gap-4">
-                      <p className="font-bold text-green-700">₹{Number(item.price).toFixed(2)}</p>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-400">Wholesale</p>
+                        <p className="font-bold text-gray-600">₹{Number(item.price).toFixed(2)}</p>
+                      </div>
                       <button 
                         onClick={() => addToCart(item)}
                         className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 active:scale-95 transition"
@@ -102,9 +113,9 @@ export default function BillingPOS() {
           </div>
         </div>
 
-        {/* RIGHT SIDE: Cart & Checkout */}
+        {/* RIGHT SIDE: Cart & Checkout (Editable MRP) */}
         <div className="bg-white p-6 rounded-lg shadow-md h-[80vh] flex flex-col border-t-4 border-green-600">
-          <h2 className="text-2xl font-bold mb-4 text-gray-800">Current Bill</h2>
+          <h2 className="text-2xl font-bold mb-4 text-gray-800">Customer Bill</h2>
           
           <div className="overflow-y-auto flex-grow border rounded-lg mb-4 bg-gray-50">
             {cart.length === 0 ? (
@@ -114,21 +125,37 @@ export default function BillingPOS() {
             ) : (
               <ul className="divide-y">
                 {cart.map((item, idx) => (
-                  <li key={idx} className="p-4 flex justify-between items-center bg-white">
-                    <div>
+                  <li key={idx} className="p-4 flex flex-col gap-3 bg-white">
+                    <div className="flex justify-between items-start">
                       <p className="font-semibold text-gray-800">{item.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {item.qty} x ₹{Number(item.price).toFixed(2)}
-                      </p>
+                      <button onClick={() => removeFromCart(item.name)} className="text-red-500 font-bold hover:text-red-700 px-2">✕</button>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <p className="font-bold text-gray-800">₹{(Number(item.qty) * Number(item.price)).toFixed(2)}</p>
-                      <button 
-                        onClick={() => removeFromCart(item.name)}
-                        className="text-red-500 font-bold hover:text-red-700 px-2"
-                      >
-                        ✕
-                      </button>
+                    
+                    {/* Controls to edit Qty and MRP */}
+                    <div className="flex justify-between items-center bg-gray-50 p-2 rounded border">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600 font-medium">Qty:</label>
+                        <input 
+                          type="number" 
+                          value={item.qty} 
+                          onChange={(e) => updateCartItem(item.name, 'qty', e.target.value)}
+                          className="w-16 border rounded p-1 text-center outline-none focus:border-blue-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600 font-medium">MRP (₹):</label>
+                        <input 
+                          type="number" 
+                          value={item.mrp} 
+                          onChange={(e) => updateCartItem(item.name, 'mrp', e.target.value)}
+                          className="w-24 border rounded p-1 text-right font-bold text-green-700 outline-none focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-sm">
+                      <p className="text-xs text-gray-400 italic">Cost: ₹{Number(item.price).toFixed(2)} (Hidden from bill)</p>
+                      <p className="font-bold text-gray-800">Total: ₹{(Number(item.qty) * Number(item.mrp)).toFixed(2)}</p>
                     </div>
                   </li>
                 ))}
@@ -138,7 +165,7 @@ export default function BillingPOS() {
 
           <div className="border-t pt-4">
             <div className="flex justify-between items-center mb-6 px-2">
-              <span className="text-xl font-bold text-gray-700">Total Amount:</span>
+              <span className="text-xl font-bold text-gray-700">Final Bill Amount:</span>
               <span className="text-3xl font-bold text-green-600">₹{total.toFixed(2)}</span>
             </div>
             
@@ -147,7 +174,7 @@ export default function BillingPOS() {
               disabled={cart.length === 0}
               className="w-full bg-green-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-green-700 disabled:bg-gray-400 shadow-md transition"
             >
-              Print A4 Invoice
+              Print Customer Invoice
             </button>
           </div>
         </div>
@@ -160,5 +187,5 @@ export default function BillingPOS() {
       
     </div>
   );
-                }
-                        
+                                           }
+                    
