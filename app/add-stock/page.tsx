@@ -8,23 +8,16 @@ const mergeDuplicates = (items: any[]) => {
   
   items.forEach((item) => {
     const cleanName = item.name.trim().toLowerCase();
-    
     if (merged[cleanName]) {
       merged[cleanName].qty += Number(item.qty);
       merged[cleanName].price = Math.max(merged[cleanName].price, Number(item.price));
     } else {
-      merged[cleanName] = { 
-        name: item.name.trim(), 
-        qty: Number(item.qty), 
-        price: Number(item.price) 
-      };
+      merged[cleanName] = { name: item.name.trim(), qty: Number(item.qty), price: Number(item.price) };
     }
   });
-  
   return Object.values(merged);
 };
 
-// Helper to compress image before upload to prevent 504 timeouts
 const compressImage = (file: File): Promise<string> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -41,7 +34,7 @@ const compressImage = (file: File): Promise<string> => {
 
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8)); // Compressed base64
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
       };
     };
   });
@@ -63,30 +56,52 @@ export default function AddStockAutomated() {
     setIsProcessing(true);
 
     try {
-      // Compress image to small payload to avoid 504 Gateway Timeouts
       const compressedBase64 = await compressImage(file);
+      const apiKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
 
-      const response = await fetch('/api/extract-invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: compressedBase64 }),
+      if (!apiKey) {
+        throw new Error("Missing API Key! Please add NEXT_PUBLIC_OPENROUTER_API_KEY in Vercel.");
+      }
+
+      const prompt = `Extract all items from this invoice into a strict JSON array of objects. Each object must have keys: "name" (string), "qty" (number), "price" (number). Output ONLY raw JSON.`;
+
+      // Direct Browser-to-AI Fetch: Bypasses Vercel's 15-second 504 Timeout rule entirely!
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://stationary-shop-taupe.vercel.app",
+          "X-Title": "Ajay Stationary Hub POS"
+        },
+        body: JSON.stringify({
+          model: "google/gemma-4-26b-a4b-it:free",
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: compressedBase64 } }
+              ]
+            }
+          ]
+        })
       });
 
       if (!response.ok) {
-        let errorMessage = 'Failed to read invoice';
-        try {
-          const errData = await response.json();
-          errorMessage = errData.error || `HTTP Error ${response.status}`;
-        } catch (e) {
-          errorMessage = `Server crashed with status: ${response.status}`;
-        }
-        throw new Error(errorMessage);
+        throw new Error(`AI provider busy (Status ${response.status}). Please wait a moment and tap extract again.`);
       }
 
-      const data = await response.json();
-      const cleanedData = mergeDuplicates(data.items);
-      setExtractedItems(cleanedData);
+      const result = await response.json();
+      const textResponse = result.choices[0].message.content;
+      const jsonMatch = textResponse.match(/\[[\s\S]*\]/) || textResponse.match(/\{[\s\S]*\}/);
       
+      if (!jsonMatch) throw new Error("AI did not return valid JSON");
+
+      const extractedData = JSON.parse(jsonMatch[0]);
+      const cleanedData = mergeDuplicates(extractedData);
+      setExtractedItems(cleanedData);
+
     } catch (error: any) {
       alert(`SYSTEM ERROR:\n${error.message}`);
       console.error(error);
@@ -207,5 +222,5 @@ export default function AddStockAutomated() {
       </main>
     </div>
   );
-    }
-    
+                }
+        
