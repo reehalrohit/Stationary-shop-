@@ -9,12 +9,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    // Convert the uploaded file into a Base64 string
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64Image = buffer.toString('base64');
 
-    // The strict prompt forcing the AI to act as a structured data extractor
     const prompt = `
       You are an expert OCR system for a stationary shop. Analyze this supplier invoice image.
       Extract the items purchased and return ONLY a valid JSON array of objects.
@@ -25,7 +23,6 @@ export async function POST(req: NextRequest) {
       - "price" (number): The unit price of the item.
     `;
 
-    // Call OpenRouter API directly using standard fetch
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -35,21 +32,13 @@ export async function POST(req: NextRequest) {
         "X-Title": "Stationary Shop POS"
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash", // Routing to Google's state-of-the-art vision model via OpenRouter
+        model: "google/gemini-2.0-flash-001", // The correct, valid model name!
         messages: [
           {
             role: "user",
             content: [
-              {
-                type: "text",
-                text: prompt
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${file.type};base64,${base64Image}`
-                }
-              }
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: `data:${file.type};base64,${base64Image}` } }
             ]
           }
         ]
@@ -59,20 +48,27 @@ export async function POST(req: NextRequest) {
     if (!response.ok) {
         const errorText = await response.text();
         console.error("OpenRouter API Error:", errorText);
-        throw new Error("Failed to communicate with OpenRouter");
+        // This will now send the EXACT error back to your frontend
+        return NextResponse.json({ error: `OpenRouter Error: ${response.statusText}` }, { status: response.status });
     }
 
     const result = await response.json();
-    const textResponse = result.choices[0].message.content;
     
-    // Clean up the response in case the AI accidentally added markdown
+    // Check if OpenRouter returned a valid message
+    if (!result.choices || !result.choices[0] || !result.choices[0].message) {
+      console.error("Unexpected API Response:", result);
+      return NextResponse.json({ error: 'Invalid response from AI provider' }, { status: 500 });
+    }
+
+    const textResponse = result.choices[0].message.content;
     const cleanedText = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
     const extractedData = JSON.parse(cleanedText);
 
     return NextResponse.json({ items: extractedData });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('AI Extraction Failed:', error);
-    return NextResponse.json({ error: 'Failed to process invoice' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to process invoice' }, { status: 500 });
   }
 }
+  
