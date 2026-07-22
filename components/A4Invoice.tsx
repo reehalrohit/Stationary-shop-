@@ -1,82 +1,82 @@
+'use client';
+
 export default function A4Invoice({ cart, total }: { cart: any[], total: number }) {
-  const handlePrint = () => {
-    window.print();
-  };
+  const date = new Date().toLocaleDateString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric'
+  });
 
   return (
-    <div className="max-w-4xl mx-auto p-8 bg-white text-black shadow-lg my-6 print:shadow-none print:m-0 print:p-0">
+    <div className="w-[210mm] min-h-[297mm] bg-white text-black p-12 mx-auto font-sans">
       
-      {/* Hidden button when printing */}
-      <div className="mb-6 flex justify-end print:hidden">
-        <button 
-          onClick={handlePrint}
-          className="bg-blue-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-blue-700 transition"
-        >
-          Print A4 Invoice
-        </button>
+      {/* Header */}
+      <div className="text-center border-b-2 border-black pb-6 mb-6">
+        <h1 className="text-4xl font-extrabold uppercase tracking-wide">Ajay Stationary Hub</h1>
+        <p className="text-lg mt-2 text-gray-700">Complete Retail & Wholesale Stationary</p>
+        <p className="text-md text-gray-600">Contact: +91 XXXXX XXXXX</p>
       </div>
 
-      {/* A4 Printable Sheet Container */}
-      <div className="print:w-[210mm] print:min-h-[297mm] print:p-8">
-        
-        {/* Header */}
-        <div className="flex justify-between items-start border-b pb-6 mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Ajay Stationary Hub</h2>
-            <p className="text-sm text-gray-600">Complete Retail & Wholesale Stationary Store</p>
-            <p className="text-sm text-gray-600">Contact: +91 XXXXX XXXXX</p>
-          </div>
-          <div className="text-right">
-            <h3 className="text-xl font-semibold text-gray-800">INVOICE</h3>
-            <p className="text-sm text-gray-600">Date: {new Date().toLocaleDateString()}</p>
-            <p className="text-sm text-gray-600">Invoice #: INV-{Math.floor(100000 + Math.random() * 900000)}</p>
-          </div>
+      {/* Invoice Details */}
+      <div className="flex justify-between items-end mb-8">
+        <div>
+          <h2 className="text-2xl font-bold uppercase text-gray-800">Tax Invoice</h2>
+          <p className="text-gray-600 mt-1">Customer Bill</p>
         </div>
+        <div className="text-right">
+          <p className="font-semibold"><span className="text-gray-600">Date:</span> {date}</p>
+          <p className="font-semibold mt-1"><span className="text-gray-600">Invoice No:</span> #ASH-{Math.floor(1000 + Math.random() * 9000)}</p>
+        </div>
+      </div>
 
-        {/* Items Table */}
-        <table className="w-full mb-8 border-collapse">
-          <thead>
-            <tr className="border-b-2 border-gray-300 text-left text-sm font-semibold text-gray-700">
-              <th className="py-3 px-2">#</th>
-              <th className="py-3 px-4">Item Name</th>
-              <th className="py-3 px-4 text-center">Qty</th>
-              <th className="py-3 px-4 text-right">Unit Price (₹)</th>
-              <th className="py-3 px-4 text-right">Total (₹)</th>
+      {/* Items Table - STRICTLY MRP ONLY */}
+      <table className="w-full text-left border-collapse mb-8">
+        <thead>
+          <tr className="bg-gray-100 border-y-2 border-black">
+            <th className="py-3 px-2 font-bold uppercase text-sm w-12 text-center">No.</th>
+            <th className="py-3 px-2 font-bold uppercase text-sm">Item Description</th>
+            <th className="py-3 px-2 font-bold uppercase text-sm text-center w-24">Qty</th>
+            <th className="py-3 px-2 font-bold uppercase text-sm text-right w-32">MRP Rate (₹)</th>
+            <th className="py-3 px-2 font-bold uppercase text-sm text-right w-32">Amount (₹)</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-300">
+          {cart.map((item, index) => (
+            <tr key={index}>
+              <td className="py-3 px-2 text-center text-gray-700">{index + 1}</td>
+              <td className="py-3 px-2 font-medium">{item.name}</td>
+              <td className="py-3 px-2 text-center">{item.qty}</td>
+              <td className="py-3 px-2 text-right">{Number(item.mrp).toFixed(2)}</td>
+              <td className="py-3 px-2 text-right font-semibold">{(Number(item.qty) * Number(item.mrp)).toFixed(2)}</td>
             </tr>
-          </thead>
-          <tbody className="text-sm divide-y divide-gray-200">
-            {cart.map((item, index) => (
-              <tr key={index}>
-                <td className="py-3 px-2 text-gray-500">{index + 1}</td>
-                <td className="py-3 px-4 font-medium text-gray-800">{item.name}</td>
-                <td className="py-3 px-4 text-center text-gray-600">{item.qty}</td>
-                <td className="py-3 px-4 text-right text-gray-600">₹{item.price.toFixed(2)}</td>
-                <td className="py-3 px-4 text-right font-semibold text-gray-800">₹{(item.qty * item.price).toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          ))}
+        </tbody>
+      </table>
 
-        {/* Totals Section */}
-        <div className="flex justify-end border-t pt-4">
-          <div className="w-64 space-y-2">
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>Subtotal:</span>
-              <span>₹{total.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-base font-bold text-gray-900 border-t pt-2">
-              <span>Grand Total:</span>
-              <span>₹{total.toFixed(2)}</span>
-            </div>
+      {/* Totals Section */}
+      <div className="flex justify-end border-t-2 border-black pt-4">
+        <div className="w-64">
+          <div className="flex justify-between items-center mb-2">
+            <span className="font-bold text-gray-700">Subtotal:</span>
+            <span>₹{total.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between items-center border-t border-gray-300 pt-2 text-xl">
+            <span className="font-bold uppercase text-black">Grand Total:</span>
+            <span className="font-extrabold text-black">₹{total.toFixed(2)}</span>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="mt-16 text-center text-xs text-gray-500 border-t pt-6">
-          <p>Thank you for shopping at Ajay Stationary Hub! Visit again.</p>
-        </div>
-
       </div>
+
+      {/* Footer */}
+      <div className="mt-20 border-t border-gray-300 pt-6 text-center text-sm text-gray-500">
+        <p>Thank you for shopping with Ajay Stationary Hub!</p>
+        <p>Goods once sold cannot be returned or exchanged without a valid receipt.</p>
+        <div className="mt-12 flex justify-end">
+          <div className="text-center w-48">
+            <div className="border-b border-black mb-2 h-8"></div>
+            <p className="font-semibold text-black">Authorized Signatory</p>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
-          }
+      }
