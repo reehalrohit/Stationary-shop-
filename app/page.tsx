@@ -9,32 +9,34 @@ export default function BillingPOS() {
   const [cart, setCart] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  
+  // New State for the Edit Modal
+  const [editingItem, setEditingItem] = useState<any | null>(null);
+
+  const fetchInventory = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/inventory', { cache: 'no-store' });
+      const data = await response.json();
+      if (data.items) setInventory(data.items);
+    } catch (error) {
+      console.error("Failed to load inventory", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchInventory = async () => {
-      try {
-        const response = await fetch('/api/inventory', { cache: 'no-store' });
-        const data = await response.json();
-        if (data.items) {
-          setInventory(data.items);
-        }
-      } catch (error) {
-        console.error("Failed to load inventory", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchInventory();
   }, []);
 
-    const addToCart = (item: any) => {
+  const addToCart = (item: any) => {
     const existingItem = cart.find(cartItem => cartItem.name === item.name);
     if (existingItem) {
       setCart(cart.map(cartItem => 
         cartItem.name === item.name ? { ...cartItem, qty: cartItem.qty + 1 } : cartItem
       ));
     } else {
-      // Pulls the permanent MRP from the database automatically!
       setCart([...cart, { 
         ...item, 
         qty: 1, 
@@ -43,20 +45,38 @@ export default function BillingPOS() {
       }]);
     }
   };
-  
-  // Function to let you edit Qty and MRP directly in the cart
+
   const updateCartItem = (itemName: string, field: string, value: string) => {
     const numValue = value === '' ? 0 : Number(value);
-    setCart(cart.map(item => 
-      item.name === itemName ? { ...item, [field]: numValue } : item
-    ));
+    setCart(cart.map(item => item.name === itemName ? { ...item, [field]: numValue } : item));
   };
 
   const removeFromCart = (itemName: string) => {
     setCart(cart.filter(item => item.name !== itemName));
   };
 
-  // The final total is now calculated strictly using the MRP, NOT the wholesale price!
+  // Function to save permanent edits to the database
+  const saveEditToDatabase = async () => {
+    if (!editingItem) return;
+    
+    try {
+      const response = await fetch('/api/inventory', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingItem),
+      });
+      
+      if (!response.ok) throw new Error("Failed to update item");
+      
+      alert("Database updated successfully!");
+      setEditingItem(null); // Close modal
+      fetchInventory();     // Refresh the list immediately
+    } catch (error) {
+      alert("Error saving update.");
+      console.error(error);
+    }
+  };
+
   const total = cart.reduce((sum, item) => sum + (Number(item.qty) * Number(item.mrp)), 0);
 
   const filteredInventory = inventory.filter(item => 
@@ -100,12 +120,21 @@ export default function BillingPOS() {
                         <p className="text-xs text-gray-400">Wholesale</p>
                         <p className="font-bold text-gray-600">₹{Number(item.price).toFixed(2)}</p>
                       </div>
-                      <button 
-                        onClick={() => addToCart(item)}
-                        className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 active:scale-95 transition"
-                      >
-                        Add
-                      </button>
+                      <div className="flex flex-col gap-2">
+                        <button 
+                          onClick={() => addToCart(item)}
+                          className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 active:scale-95 transition"
+                        >
+                          Add
+                        </button>
+                        {/* 🔥 NEW EDIT BUTTON */}
+                        <button 
+                          onClick={() => setEditingItem(item)}
+                          className="text-xs text-blue-600 hover:text-blue-800 underline text-center"
+                        >
+                          Edit Item
+                        </button>
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -135,7 +164,6 @@ export default function BillingPOS() {
                       <button onClick={() => removeFromCart(item.name)} className="text-red-500 font-bold hover:text-red-700 px-2">✕</button>
                     </div>
                     
-                    {/* Controls to edit Qty and MRP */}
                     <div className="flex justify-between items-center bg-gray-50 p-2 rounded border">
                       <div className="flex items-center gap-2">
                         <label className="text-sm text-gray-600 font-medium">Qty:</label>
@@ -184,6 +212,66 @@ export default function BillingPOS() {
         </div>
       </main>
 
+      {/* 🔥 NEW: EDIT ITEM MODAL */}
+      {editingItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 print:hidden">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md border-t-4 border-blue-600 animate-fade-in">
+            <h3 className="text-xl font-bold mb-4 text-gray-800">Edit Permanent Stock</h3>
+            
+            <label className="block text-sm text-gray-600 font-bold mb-1">Item Name</label>
+            <input 
+              className="w-full border p-2 rounded mb-3 outline-none focus:ring-2 focus:ring-blue-500" 
+              value={editingItem.name} 
+              onChange={(e) => setEditingItem({...editingItem, name: e.target.value})} 
+            />
+            
+            <label className="block text-sm text-gray-600 font-bold mb-1">In Stock Qty</label>
+            <input 
+              type="number" 
+              className="w-full border p-2 rounded mb-3 outline-none focus:ring-2 focus:ring-blue-500" 
+              value={editingItem.qty} 
+              onChange={(e) => setEditingItem({...editingItem, qty: e.target.value})} 
+            />
+            
+            <div className="flex gap-4 mb-6">
+              <div className="w-1/2">
+                <label className="block text-sm text-gray-600 font-bold mb-1">Wholesale Cost (₹)</label>
+                <input 
+                  type="number" 
+                  className="w-full border p-2 rounded outline-none focus:ring-2 focus:ring-blue-500" 
+                  value={editingItem.price} 
+                  onChange={(e) => setEditingItem({...editingItem, price: e.target.value})} 
+                />
+              </div>
+              <div className="w-1/2">
+                <label className="block text-sm text-green-700 font-bold mb-1">Retail MRP (₹)</label>
+                <input 
+                  type="number" 
+                  className="w-full border-2 border-green-300 p-2 rounded bg-green-50 outline-none focus:ring-2 focus:ring-green-500 font-bold text-green-800" 
+                  value={editingItem.mrp} 
+                  onChange={(e) => setEditingItem({...editingItem, mrp: e.target.value})} 
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 pt-4 border-t">
+               <button 
+                 onClick={() => setEditingItem(null)} 
+                 className="px-4 py-2 text-gray-600 font-semibold hover:bg-gray-100 rounded transition"
+               >
+                 Cancel
+               </button>
+               <button 
+                 onClick={saveEditToDatabase} 
+                 className="px-6 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700 shadow-md transition"
+               >
+                 Save to Database
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hidden A4 Print Component */}
       <div className="hidden print:block">
         <A4Invoice cart={cart} total={total} />
@@ -191,5 +279,5 @@ export default function BillingPOS() {
       
     </div>
   );
-                                           }
-                    
+  }
+    
