@@ -1,4 +1,4 @@
-export const maxDuration = 60; // Allows the function to run for up to 60 seconds
+export const maxDuration = 60;
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
@@ -14,15 +14,15 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(arrayBuffer);
     const base64Image = buffer.toString('base64');
 
+    // Streamlined prompt for faster processing on free models
     const prompt = `
-      You are an expert OCR system for a stationary shop. Analyze this supplier invoice image.
-      Extract the items purchased and return ONLY a valid JSON array of objects.
-      Do not use markdown blocks, backticks, or extra text.
-      Each object must strictly have these keys:
-      - "name" (string): The name of the stationary item.
-      - "qty" (number): The quantity received.
-      - "price" (number): The unit price of the item.
+      Analyze this invoice image. Extract all items into a strict JSON array of objects.
+      Each object must have: "name" (string), "qty" (number), "price" (number).
+      Return ONLY the raw JSON array. No extra text.
     `;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 55000);
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -30,10 +30,10 @@ export async function POST(req: NextRequest) {
         "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": "https://stationary-shop-taupe.vercel.app", 
-        "X-Title": "Stationary Shop POS"
+        "X-Title": "Ajay Stationary Hub POS"
       },
       body: JSON.stringify({
-        model: "google/gemma-4-26b-a4b-it:free",
+        model: "openrouter/free",
         messages: [
           {
             role: "user",
@@ -43,39 +43,40 @@ export async function POST(req: NextRequest) {
             ]
           }
         ]
-      })
+      }),
+      signal: controller.signal
     });
 
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-        const errorText = await response.text();
-        console.error("OpenRouter API Error:", errorText);
-        return NextResponse.json({ error: `OpenRouter Error: ${response.statusText}` }, { status: response.status });
+      const errorText = await response.text();
+      console.error("OpenRouter API Error:", errorText);
+      return NextResponse.json({ error: `AI provider is busy (Status ${response.status}). Please try again.` }, { status: response.status });
     }
 
     const result = await response.json();
     
     if (!result.choices || !result.choices[0] || !result.choices[0].message) {
-      console.error("Unexpected API Response:", result);
       return NextResponse.json({ error: 'Invalid response from AI provider' }, { status: 500 });
     }
 
     const textResponse = result.choices[0].message.content;
-
-    // 🔥 Extract ONLY the JSON array [...], stripping preambles like "User Safety: safe"
     const jsonMatch = textResponse.match(/\[[\s\S]*\]/) || textResponse.match(/\{[\s\S]*\}/);
     
     if (!jsonMatch) {
-      console.error("Could not find JSON array in response:", textResponse);
       return NextResponse.json({ error: 'AI response did not contain a valid JSON list' }, { status: 500 });
     }
 
     const extractedData = JSON.parse(jsonMatch[0]);
-
     return NextResponse.json({ items: extractedData });
 
   } catch (error: any) {
+    if (error.name === 'AbortError') {
+      return NextResponse.json({ error: 'The AI request timed out because free servers are busy. Please tap Extract Items again.' }, { status: 504 });
+    }
     console.error('AI Extraction Failed:', error);
     return NextResponse.json({ error: error.message || 'Failed to process invoice' }, { status: 500 });
   }
-                             }
-    
+}
+  
