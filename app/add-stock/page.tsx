@@ -3,30 +3,25 @@
 import { useState } from 'react';
 import Navbar from '../../components/Navbar';
 
-// 1. New Helper Function: Merges duplicates and adds their quantities
+// Helper Function: Merges duplicates and adds their quantities
 const mergeDuplicates = (items: any[]) => {
   const merged: Record<string, any> = {};
   
   items.forEach((item) => {
-    // Convert to lowercase to catch identical items with different capitalization
     const cleanName = item.name.trim().toLowerCase();
     
     if (merged[cleanName]) {
-      // Item exists: Add the quantities together
       merged[cleanName].qty += Number(item.qty);
-      // Keep the most recent/highest price to protect your profit margins
       merged[cleanName].price = Math.max(merged[cleanName].price, Number(item.price));
     } else {
-      // New item: Add it to the list
       merged[cleanName] = { 
-        name: item.name.trim(), // Preserve original capitalization for the screen
+        name: item.name.trim(), 
         qty: Number(item.qty), 
         price: Number(item.price) 
       };
     }
   });
   
-  // Convert the cleaned object back into a standard array
   return Object.values(merged);
 };
 
@@ -41,7 +36,7 @@ export default function AddStockAutomated() {
     }
   };
 
-    const processInvoice = async () => {
+  const processInvoice = async () => {
     if (!file) return;
     setIsProcessing(true);
 
@@ -54,7 +49,6 @@ export default function AddStockAutomated() {
         body: formData,
       });
 
-      // 🔥 THIS IS THE FIX: Actually read the error from the server!
       if (!response.ok) {
         let errorMessage = 'Failed to read invoice';
         try {
@@ -67,7 +61,6 @@ export default function AddStockAutomated() {
       }
 
       const data = await response.json();
-      
       const cleanedData = mergeDuplicates(data.items);
       setExtractedItems(cleanedData);
       
@@ -78,13 +71,30 @@ export default function AddStockAutomated() {
       setIsProcessing(false);
     }
   };
-  
 
-  const confirmAndAddToInventory = () => {
-    // Later, this will send the clean array to your real database
-    alert(`Successfully processed! ${extractedItems.length} unique items added to inventory.`);
-    setExtractedItems([]);
-    setFile(null);
+  const handleItemChange = (index: number, field: string, value: any) => {
+    const updated = [...extractedItems];
+    updated[index][field] = field === 'name' ? value : Number(value);
+    setExtractedItems(updated);
+  };
+
+  const confirmAndAddToInventory = async () => {
+    try {
+      const response = await fetch('/api/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: extractedItems }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to save to database');
+
+      alert(`Successfully saved ${extractedItems.length} items to live inventory database!`);
+      setExtractedItems([]);
+      setFile(null);
+    } catch (error: any) {
+      alert(`Error saving stock: ${error.message}`);
+    }
   };
 
   return (
@@ -134,13 +144,28 @@ export default function AddStockAutomated() {
                   {extractedItems.map((item, index) => (
                     <tr key={index} className="border-b border-gray-200">
                       <td className="p-2">
-                        <input type="text" defaultValue={item.name} className="w-full border-none outline-none focus:ring-1 focus:ring-blue-400 bg-transparent" />
+                        <input 
+                          type="text" 
+                          value={item.name} 
+                          onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                          className="w-full border-none outline-none focus:ring-1 focus:ring-blue-400 bg-transparent" 
+                        />
                       </td>
                       <td className="p-2 text-center">
-                        <input type="number" defaultValue={item.qty} className="w-16 text-center border-none outline-none focus:ring-1 focus:ring-blue-400 bg-transparent" />
+                        <input 
+                          type="number" 
+                          value={item.qty} 
+                          onChange={(e) => handleItemChange(index, 'qty', e.target.value)}
+                          className="w-16 text-center border-none outline-none focus:ring-1 focus:ring-blue-400 bg-transparent" 
+                        />
                       </td>
                       <td className="p-2 text-right">
-                        <input type="number" defaultValue={item.price} className="w-20 text-right border-none outline-none focus:ring-1 focus:ring-blue-400 bg-transparent" />
+                        <input 
+                          type="number" 
+                          value={item.price} 
+                          onChange={(e) => handleItemChange(index, 'price', e.target.value)}
+                          className="w-20 text-right border-none outline-none focus:ring-1 focus:ring-blue-400 bg-transparent" 
+                        />
                       </td>
                     </tr>
                   ))}
@@ -159,5 +184,4 @@ export default function AddStockAutomated() {
       </main>
     </div>
   );
-            }
-                
+}
